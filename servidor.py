@@ -29,6 +29,26 @@ class Queue:
   def printQueue(self):
       return self.queue
 
+class Stack:
+     def __init__(self):
+         self.items = []
+
+     def isEmpty(self):
+         return self.items == []
+
+     def push(self, item):
+         self.items.append(item)
+
+     def pop(self):
+         return self.items.pop()
+
+     def peek(self):
+         return self.items[len(self.items)-1]
+
+     def size(self):
+         return len(self.items)
+
+
 # Create a TCP/IP socket
 sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
@@ -47,8 +67,11 @@ realMem = 3 #real memory size in kilonytes, 1 => 1024
 swapMem = 4 #swap memory size in kilobytes, 1 => 1024
 pageSize = 1 #page size in kilobytes, 1 => 1024
 
-pageTable = ["L"] * realMem/pageSize
-swapTable = ["L"] * swapMem/pageSize
+pageTable = ["L"] * realMem/pageSize #lista con paginas inicialmente libres
+mfuPageTable = Stack()
+swapTable = ["L"] * swapMem/pageSize #lista de swap inicialmente libre
+mfuSwapTable = Stack()
+queue = Queue() #cola de listos
 
 
 #Calling listen() puts the socket into server mode, and accept() waits for an incoming connection.
