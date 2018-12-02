@@ -16,6 +16,18 @@ server_address = ('localhost', 10000)
 print >>sys.stderr, 'starting up on %s port %s' % server_address
 sock.bind(server_address)
 
+#Instanitate CPU values
+politicaCPU = "RR" #Round Robin
+politicaMEM = "MFU" #Most Frequently used
+quantum = 1.0 #quantum size in seconds
+realMem = 3 #real memory size in kilonytes, 1 => 1024
+swapMem = 4 #swap memory size in kilobytes, 1 => 1024
+pageSize = 1 #page size in kilobytes, 1 => 1024
+
+pageTable = ["L"] * realMem/pageSize
+swapTable = ["L"] * swapMem/pageSize
+
+
 #Calling listen() puts the socket into server mode, and accept() waits for an incoming connection.
 
 # Listen for incoming connections
@@ -34,15 +46,30 @@ try:
     # Receive the data
 	while True:
 		data = connection.recv(256)
-		print >>sys.stderr, 'server received "%s"' % data
+		if data == "":
+			print >>sys.stderr, 'no data from', client_address
+			connection.close()
+			sys.exit()
+		command = data
+		parameter = None
+		comment = None
+
+		if "//" in command:
+			commentSplit = data.split("//")
+			command = commentSplit[0]
+			comment = commentSplit[1]
+		if " " in  command:
+			commandSplit = commentSplit[0].split(" ")
+			command = commandSplit[0]
+			parameter = commandSplit[1]
+
+		print >>sys.stderr, 'server received command "%s" and parameter "%s"' % (command, parameter)
+
+
 		if data:
 			print >>sys.stderr, 'sending answer back to the client'
 
 			connection.sendall('process created')
-		else:
-			print >>sys.stderr, 'no data from', client_address
-			connection.close()
-			sys.exit()
 
 finally:
      # Clean up the connection
