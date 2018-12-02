@@ -55,13 +55,14 @@ politicaMEM = "MFU" #Most Frequently used
 quantum = 1.0 #quantum size in seconds
 realMem = 3 #real memory size in kilonytes, 1 => 1024
 swapMem = 4 #swap memory size in kilobytes, 1 => 1024
-pageSize = 1 #page size in kilobytes, 1 => 1024
+pageSizeInKB = 1 #page size in kilobytes, 1 => 1024
+pageSizeInBytes = pageSizeInKB*1024
 timestamp = 0.0
 delta = quantum
 
-pageTable = ["L"] * (realMem/pageSize) #lista con paginas inicialmente libres
+pageTable = ["L"] * (realMem/pageSizeInKB) #lista con paginas inicialmente libres
 mfuPageTable = Stack()
-swapTable = ["L"] * (swapMem/pageSize) #lista de swap inicialmente libre
+swapTable = ["L"] * (swapMem/pageSizeInKB) #lista de swap inicialmente libre
 mfuSwapTable = Stack()
 pQueue = Queue() #cola de listos
 CPU = "L"
@@ -84,8 +85,8 @@ def addPage(processID, pageID):
 	global pageTable
 	# processName = str(processID) + "."
 	# processMatching = [s for s in pageTable if processName in s]
-	tableEntry = str(processID) + "." + str(pageID)
-	if tableEntry in pageTable:
+	proccessWithPage = str(processID) + "." + str(int(pageID))
+	if proccessWithPage in pageTable:
 		#nothing, page already loaded
 		print("Page already in Real Memory")
 
@@ -94,16 +95,17 @@ def addPage(processID, pageID):
 		#memoria libre
 		if "L" in pageTable:
 			i = pageTable.index("L")
-			pageTable[i] = tableEntry
+			pageTable[i] = proccessWithPage
 		#memoria ocpada, necesidad de un swap
 		else:
 			print("Swap in page table, PENDING LOGIC")
-
-	return tableEntry
+	return str(pageTable.index(proccessWithPage)) + ":" + proccessWithPage
 
 def addQueueProcToCPU():
+	global CPU
 	topProcessID = pQueue.dequeue()
-	CPU = (addPage(topProcessID, 0))
+	tableEntry = addPage(topProcessID, 0)
+	CPU = (topProcessID)
 
 def create(size):
 	global processID
@@ -122,9 +124,27 @@ def create(size):
 	processID += 1
 
 def address(processID, virtualAddress):
-	print(address)
 	#process not in CPU
+	if (processID) not in str(CPU):
+		message = "%.3f ERROR: Requested process ID not in CPU" % timestamp
+		print(message)
+		connection.sendall(message)
+		return None
 	#virtual address out of bounds
+	if (processSize[int(processID)]*pageSizeInBytes) <= int(virtualAddress):
+		message = "%.3f ERROR: Requested virtul address out of bounds" % timestamp
+		print(message)
+		connection.sendall(message)
+		return None
+	procPageID = math.floor(int(virtualAddress)/pageSizeInBytes)
+	procByteNum = int(virtualAddress)%pageSizeInBytes
+	tableEntry = addPage(processID, procPageID)
+	pageEntry = (tableEntry.split(":"))[0]
+	realAddress = int(pageEntry)*pageSizeInBytes + int(procByteNum)
+	print >>sys.stderr, 'sending answer back to the client'
+	answer = "%.3f real address: %s" % (timestamp, realAddress)
+	connection.sendall(answer)
+
 
 # Create a TCP/IP socket
 sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -180,7 +200,7 @@ try:
 			print("Quantum")
 		#Address
 		if command == "Address":
-			address(command, parameters[1], parameters[2])
+			address(parameters[1], parameters[2])
 		#Fin
 		#End
 
