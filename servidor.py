@@ -1,6 +1,7 @@
 import socket
 import sys
 import time
+import math
 
 class Queue:
   #Constructor creates a list
@@ -48,6 +49,82 @@ class Stack:
      def size(self):
          return len(self.items)
 
+#Instanitate CPU values
+politicaCPU = "RR" #Round Robin
+politicaMEM = "MFU" #Most Frequently used
+quantum = 1.0 #quantum size in seconds
+realMem = 3 #real memory size in kilonytes, 1 => 1024
+swapMem = 4 #swap memory size in kilobytes, 1 => 1024
+pageSize = 1 #page size in kilobytes, 1 => 1024
+timestamp = 0.0
+delta = quantum
+
+pageTable = ["L"] * (realMem/pageSize) #lista con paginas inicialmente libres
+mfuPageTable = Stack()
+swapTable = ["L"] * (swapMem/pageSize) #lista de swap inicialmente libre
+mfuSwapTable = Stack()
+pQueue = Queue() #cola de listos
+CPU = "L"
+processID = 1
+processSize = ["L"]
+
+def incrementTimestamp(time):
+	global timestamp
+	timestamp += time
+
+def resetDelta():
+	global delta
+	delta = quantum
+
+def decrementDelta():
+	global delta
+	delta -= quantum
+
+def addPage(processID, pageID):
+	global pageTable
+	# processName = str(processID) + "."
+	# processMatching = [s for s in pageTable if processName in s]
+	tableEntry = str(processID) + "." + str(pageID)
+	if tableEntry in pageTable:
+		#nothing, page already loaded
+		print("Page already in Real Memory")
+
+	else:
+		print("Page Fault in Real Memory")
+		#memoria libre
+		if "L" in pageTable:
+			i = pageTable.index("L")
+			pageTable[i] = tableEntry
+		#memoria ocpada, necesidad de un swap
+		else:
+			print("Swap in page table, PENDING LOGIC")
+
+	return tableEntry
+
+def addQueueProcToCPU():
+	topProcessID = pQueue.dequeue()
+	CPU = (addPage(topProcessID, 0))
+
+def create(size):
+	global processID
+	global CPU
+	global processSize
+	processSize.append(int(math.ceil(float(size))))
+	pQueue.enqueue(processID)
+
+	#if first process
+	if CPU == "L":
+		addQueueProcToCPU()
+
+	print >>sys.stderr, 'sending answer back to the client'
+	answer = "%.3f process %s created size %s pages" % (timestamp, processID, processSize[processID])
+	connection.sendall(answer)
+	processID += 1
+
+def address(processID, virtualAddress):
+	print(address)
+	#process not in CPU
+	#virtual address out of bounds
 
 # Create a TCP/IP socket
 sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -58,20 +135,6 @@ sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 server_address = ('localhost', 10000)
 print >>sys.stderr, 'starting up on %s port %s' % server_address
 sock.bind(server_address)
-
-#Instanitate CPU values
-politicaCPU = "RR" #Round Robin
-politicaMEM = "MFU" #Most Frequently used
-quantum = 1.0 #quantum size in seconds
-realMem = 3 #real memory size in kilonytes, 1 => 1024
-swapMem = 4 #swap memory size in kilobytes, 1 => 1024
-pageSize = 1 #page size in kilobytes, 1 => 1024
-
-pageTable = ["L"] * realMem/pageSize #lista con paginas inicialmente libres
-mfuPageTable = Stack()
-swapTable = ["L"] * swapMem/pageSize #lista de swap inicialmente libre
-mfuSwapTable = Stack()
-queue = Queue() #cola de listos
 
 
 #Calling listen() puts the socket into server mode, and accept() waits for an incoming connection.
@@ -97,25 +160,30 @@ try:
 			connection.close()
 			sys.exit()
 		command = data
-		parameter = None
 		comment = None
+		parameters = []
 
 		if "//" in command:
 			commentSplit = data.split("//")
 			command = commentSplit[0]
 			comment = commentSplit[1]
 		if " " in  command:
-			commandSplit = commentSplit[0].split(" ")
-			command = commandSplit[0]
-			parameter = commandSplit[1]
+			parameters = commentSplit[0].split(" ")
+			command = parameters[0]
 
-		print >>sys.stderr, 'server received command "%s" and parameter "%s"' % (command, parameter)
+		incrementTimestamp(0.001)
+		#Create %s, size in pages
+		if command == "Create":
+			create(parameters[1])
+		#Quantum
+		if command == "Quantum":
+			print("Quantum")
+		#Address
+		if command == "Address":
+			address(command, parameters[1], parameters[2])
+		#Fin
+		#End
 
-
-		if data:
-			print >>sys.stderr, 'sending answer back to the client'
-
-			connection.sendall('process created')
 
 finally:
      # Clean up the connection
