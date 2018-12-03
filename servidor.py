@@ -97,6 +97,7 @@ CPUTime = [0.0] #arreglo que guarda en orden los procesos y su tiempo en cpu
 turnaroundTime = [0] #arreglo que guarda en orden los procesos y su tiempo de turnaraound
 numPageFaults = [0] #arreglo que guarda en orden los procesos y su numero de page faults
 numPageVisits = [0] #arreglo que guarda en orden los procesos y su numero de visitas a paginas en memoria real
+numSucPageVisits = [0] #arreglo que guarda en orden los procesos y su numero de visitas acertadas
 dirReal = 0 #valor global que sirve para desplegar la tabla
 
 # Funcion que incrementa el valor global de Timestamp
@@ -121,6 +122,8 @@ def addPage(processID, pageID):
        mfuPageTable.push(proccessWithPage)
        #aumentar el numero de visitas
        numPageVisits[int(processID)] += 1
+       #aumentar el numero de visitas acertadas
+       numSucPageVisits[int(processID)] += 1
     #Si el proceso esta en el espaico de Swap
     elif proccessWithPage in swapTable:
         #quitar de la memoria de swap
@@ -133,12 +136,13 @@ def addPage(processID, pageID):
         #page fault
         #Si hay memoria libre
         if "L" in pageTable:
-            #solo se suma el numero de page faults cuando agrego el proceso a la tabla
-            numPageFaults[int(processID)] += 1
-            numPageVisits[int(processID)] += 1
             i = pageTable.index("L")
             pageTable[i] = proccessWithPage
             mfuPageTable.push(proccessWithPage)
+            #solo se suma el numero de page faults cuando agrego el proceso a la tabla
+            numPageFaults[int(processID)] += 1
+            #aumentar el numero de visitas
+            numPageVisits[int(processID)] += 1
         #Si hay memoria ocupada, hacer un swap out
         else:
             #Encontrar el MFU valido
@@ -230,6 +234,8 @@ def create(size):
     numPageFaults.append(0)
     #inicializar el numero de visitas como 0
     numPageVisits.append(0)
+    #iniccilizar e numero de visitas ciertas como 0
+    numSucPageVisits.append(0)
 
 
     #Si es el primer proceso cargarlo al CPU
@@ -369,7 +375,11 @@ def displayEnd():
         numVisitasTotal += numPageVisits[p]
         row.append(numPageFaults[p])
         numPageFaultsTotal += numPageFaults[p]
-        row.append(-1)
+        if numPageVisits[p] != 0:
+            row.append(round(1 - numPageFaults[p]/numPageVisits[p],2))
+            rendimientoProm += round(1 - numPageFaults[p]/numPageVisits[p],2)
+        else:
+            row.append(0)
 
         table.append(row)
     final = [
