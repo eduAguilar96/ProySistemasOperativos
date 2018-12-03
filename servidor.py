@@ -93,6 +93,10 @@ processID = 1 #valor global de siguiente proceso
 processSize = ["L"] #arreglo que guarda el tamano de los proceso
 lastPageUsed = [0] #arreglo que guarda la ultima pagina utliada por cada proceso para cuando regresan al CPU
 finished = [] #arreglo que guarda en orden los proceso que van finalizando
+CPUTime = [0.0] #arreglo que guarda en orden los procesos y su tiempo en cpu
+turnaroundTime = [0] #arreglo que guarda en orden los procesos y su tiempo de turnaraound
+numPageFaults = [0] #arreglo que guarda en orden los procesos y su numero de page faults
+numPageVisits = [0] #arreglo que guarda en orden los procesos y su numero de visitas a paginas en memoria real
 dirReal = 0 #valor global que sirve para desplegar la tabla
 
 # Funcion que incrementa el valor global de Timestamp
@@ -115,6 +119,8 @@ def addPage(processID, pageID):
        #nada, la pagina ya esta cargada
        #guardar el orden
        mfuPageTable.push(proccessWithPage)
+       #aumentar el numero de visitas
+       numPageVisits[int(processID)] += 1
     #Si el proceso esta en el espaico de Swap
     elif proccessWithPage in swapTable:
         #quitar de la memoria de swap
@@ -124,8 +130,12 @@ def addPage(processID, pageID):
         return addPage(processID, pageID)
     #Si no esta en memoria real
     else:
+        #page fault
         #Si hay memoria libre
         if "L" in pageTable:
+            #solo se suma el numero de page faults cuando agrego el proceso a la tabla
+            numPageFaults[int(processID)] += 1
+            numPageVisits[int(processID)] += 1
             i = pageTable.index("L")
             pageTable[i] = proccessWithPage
             mfuPageTable.push(proccessWithPage)
@@ -207,11 +217,19 @@ def create(size):
     global processID
     global CPU
     #agregar tamano de proceso al arreglo de tamanos
-    processSize.append(int(math.ceil(float(int(size)/int(pageSizeInBytes)))))
+    processSize.append(int(math.ceil(float(int(size)*1024/int(pageSizeInBytes)))))
     #agregarlo a la cola de listos
     pQueue.enqueue(processID)
     #inicializar que su ultima pagina en ser usada fue la 0
     lastPageUsed.append(0)
+    #inicializar el tiempo en CPU como 0
+    CPUTime.append(0)
+    #inicializar el tiempo de turnaround como el timestamp
+    turnaroundTime.append(timestamp)
+    #inicializar el numero de pagefaults como 0
+    numPageFaults.append(0)
+    #inicializar el numero de visitas como 0
+    numPageVisits.append(0)
 
 
     #Si es el primer proceso cargarlo al CPU
@@ -260,6 +278,8 @@ def quantumFunc():
     global CPU
     #incrementar el timestamp por un quantum
     incrementTimestamp(float(quantum))
+    #inrementar el tiempo en CPU del proceso
+    if CPU != "L": CPUTime[int(CPU)] += float(quantum)
 
     #si el CPU esta ocupado y procesos esperar...
     if CPU != "L" and pQueue.size() != 0:
@@ -304,12 +324,66 @@ def terminate(processID):
         CPU = "L"
         addQueueProcToCPU()
 
+    #calcualr turnaroundTime
+    tiempoInicial = float(turnaroundTime[int(processID)])
+    turnaroundTime[int(processID)] = float(timestamp - tiempoInicial)
+
     #agregar a la cola de terminados
     finished.append(processID)
 
     # print >>sys.stderr, 'sending answer back to the client'
     answer = "%.3f process %s terminated" % (timestamp, processID)
     connection.sendall(answer)
+
+#Funcion que saca promedio y despliega la informacion final de programa
+def displayEnd():
+    print("*")
+    print("*")
+    headers = [
+        "ProcessID",
+        "CPU Time",
+        "Turnaraound Time",
+        "Wait Time",
+        "Num. de visitas",
+        "Num. Page Faults",
+        "Rendimiento"
+    ]
+    table = []
+    CPUTimeProm = 0
+    turnaroundTimeProm = 0
+    watingTimeProm = 0
+    numVisitasTotal = 0
+    numPageFaultsTotal = 0
+    rendimientoProm = 0
+
+    for p in range(1, processID):
+        row = []
+        row.append(p)
+        row.append(CPUTime[p])
+        CPUTimeProm += CPUTime[p]
+        row.append(turnaroundTime[p])
+        turnaroundTimeProm += turnaroundTime[p]
+        row.append(round(turnaroundTime[p] - CPUTime[p], 2))
+        watingTimeProm += round(turnaroundTime[p] - CPUTime[p], 2)
+        row.append(numPageVisits[p])
+        numVisitasTotal += numPageVisits[p]
+        row.append(numPageFaults[p])
+        numPageFaultsTotal += numPageFaults[p]
+        row.append(-1)
+
+        table.append(row)
+    final = [
+        "Promedio",
+        round(CPUTimeProm/processID,2),
+        round(turnaroundTimeProm/processID,2),
+        round(watingTimeProm/processID, 2),
+        round(numVisitasTotal/processID, 2),
+        round(numPageFaultsTotal/processID, 2),
+        round(rendimientoProm/processID, 2)
+    ]
+    table.append(final)
+
+    print tabulate(table, headers)
 
 # Create a TCP/IP socket
 sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -411,6 +485,8 @@ try:
 
         #incrementar el timestamp
         incrementTimestamp(0.001)
+        #incrementar tiempo de CPU
+        if CPU != "L": CPUTime[int(CPU)] += 0.001
 
         #inicializar direccion real
         global realAddress
@@ -464,6 +540,7 @@ try:
 
         if data == "End":
             print >>sys.stderr, 'no data from', client_address
+            displayEnd()
             answer = "Server terminating"
             connection.sendall(answer)
             connection.close()
