@@ -2,6 +2,7 @@ import socket
 import sys
 import time
 import math
+import tabulate
 
 class Queue:
     #Constructor creates a list
@@ -16,7 +17,7 @@ class Queue:
             return True
         return False
 
-  #Removing the last element from the queue
+    #Removing the last element from the queue
     def dequeue(self):
         if len(self.queue)>0:
             return self.queue.pop()
@@ -54,164 +55,244 @@ class Stack:
     def size(self):
         return len(self.items)
 
+    def printStack(self):
+        return self.items
+
 #Instanitate CPU values
 politicaCPU = "RR" #Round Robin
 politicaMEM = "MFU" #Most Frequently used
 quantum = 1.0 #quantum size in seconds
 realMem = 3 #real memory size in kilonytes, 1 => 1024
-swapMem = 4 #swap memory size in kilobytes, 1 => 1024
+swapMem = 2 #swap memory size in kilobytes, 1 => 1024
 pageSizeInKB = 1 #page size in kilobytes, 1 => 1024
+
 pageSizeInBytes = pageSizeInKB*1024
 timestamp = 0.0
 delta = quantum
 
 pageTable = ["L"] * (realMem/pageSizeInKB) #lista con paginas inicialmente libres
-mfuPageTable = Stack()
+mfuPageTable = Stack() #stack que guarda el order de las paginas
 swapTable = ["L"] * (swapMem/pageSizeInKB) #lista de swap inicialmente libre
-mfuSwapTable = Stack()
+mfuSwapTable = Stack() #stack que guarda el order del swap
 pQueue = Queue() #cola de listos
-CPU = "L"
-processID = 1
-processSize = ["L"]
-lastPageUsed = [0]
-finished = []
 
+CPU = "L" #valor del CPU actual
+processID = 1 #valor global de siguiente proceso
+processSize = ["L"] #arreglo que guarda el tamano de los proceso
+lastPageUsed = [0] #arreglo que guarda la ultima pagina utliada por cada proceso para cuando regresan al CPU
+finished = [] #arreglo que guarda en orden los proceso que van finalizando
+dirReal = 0 #valor global que sirve para desplegar la tabla
+
+# Funcion que incrementa el valor global de Timestamp
 def incrementTimestamp(time):
     global timestamp
     timestamp += time
 
+#Funcion que agrega una pagina a la tabla de la Memoria Real
+#parameters: processID, pageID
+#regresa el valor que se llena en la table, ej: 0:1.2
 def addPage(processID, pageID):
-    global pageTable
-    global lastPageUsed
+    #guardar el valor de la ultima pagina utlizada por el proceso en caso de que regrese al CPU
     lastPageUsed[int(processID)] = int(pageID)
-    proccessWithPage = str(processID) + "." + str(int(pageID))
-    if proccessWithPage in pageTable:
-       #nothing, page already loaded
-       print("Page already in Real Memory")
 
+    #este string es la concatenaccion del proceso con su pagina
+    proccessWithPage = str(processID) + "." + str(int(pageID))
+
+    #Si una pagina ya esta en memoria real
+    if proccessWithPage in pageTable:
+       #nada, la pagina ya esta cargada
+       #guardar el orden
+       mfuPageTable.push(proccessWithPage)
+    #Si el proceso esta en el espaico de Swap
+    elif proccessWithPage in swapTable:
+        #quitar de la memoria de swap
+        i = swapTable.index(proccessWithPage)
+        swapTable[i] = "L"
+        #re-llamar esta misma funcion para que ya lo ponga
+        return addPage(processID, pageID)
+    #Si no esta en memoria real
     else:
-        print("Page Fault in Real Memory")
-        #memoria libre
+        #Si hay memoria libre
         if "L" in pageTable:
             i = pageTable.index("L")
             pageTable[i] = proccessWithPage
-            #memoria ocpada, necesidad de un swap
+            mfuPageTable.push(proccessWithPage)
+        #Si hay memoria ocupada, hacer un swap out
         else:
-            print("Swap in page table, PENDING LOGIC")
+            #Encontrar el MFU valido
+            notFound = True
+            top = pageTable[0]
+            while notFound:
+                top = mfuPageTable.pop()
+                if top in pageTable:
+                    notFound = False
+            #sacar el numero de proceso y numero de pagina
+            splitSwapProc = top.split(".")
+            #agregar ringlon a la memoria de swap
+            addSwapPage(splitSwapProc[0], splitSwapProc[1])
+
+            #remover ringlon de la memoria real
+            i = pageTable.index(top)
+            pageTable[i] = "L"
+            #re-llamar funcion para ya agregar
+            return addPage(processID, pageID)
 
         return str(pageTable.index(proccessWithPage)) + ":" + proccessWithPage
 
+#Funcion que agrega una pagina a la tabla de la Memoriade Swap
+#parameters: processID, pageID
+#regresa el valor que se llena en la table, ej: 0:1.2
 def addSwapPage(processID, pageID):
-    global swapTable
+    #este string es la concatenaccion del proceso con su pagina
     proccessWithPage = str(processID) + "." + str(int(pageID))
+    #Si el proceso esta en la memoria de Swap
     if proccessWithPage in swapTable:
-        # nothing, page already loaded
-        print("Page already in Swap Memory")
-
+        # nada, la pagina ya esta
+        #guardar el orden para el MFU
+        mfuSwapTable.push(proccessWithPage)
+    #Si el proceso no esta en memoria de Swap
     else:
-        print("Page Fault in Swap Memory")
         # memoria libre
         if "L" in swapTable:
+            #llenar ringlon en la tabla
             i = swapTable.index("L")
             swapTable[i] = proccessWithPage
-        # memoria ocpada, necesidad de un swap
+            #guardar orden para MFU
+            mfuSwapTable.push(proccessWithPage)
+        # Si memoria ocupada, necesidad de un reemplazo
         else:
-            print("Swap in swap table, PENDING LOGIC")
+            #encontrar un MFU valido
+            notFound = True
+            top = swapTable[0]
+            while notFound:
+                top = mfuSwapTable.pop()
+                if top in swapTable:
+                    notFound = False
+
+            #quitar ringlon de memoria swap
+            i = swapTable.index(top)
+            swapTable[i] = "L"
+            #re-llamar metodo para ya poner ringlon
+            return addSwapPage(processID, pageID)
+
     return str(swapTable.index(proccessWithPage)) + ":" + proccessWithPage
 
+#Funcion que agrega el proceso enfrente de la cola de listos al CPU
 def addQueueProcToCPU():
     if(pQueue.size() != 0):
         global CPU
+        #sacar proceso listo
         topProcessID = pQueue.dequeue()
+        #agregar pagina de nuevo proceso a memoria real
         tableEntry = addPage(topProcessID, lastPageUsed[topProcessID])
-        CPU = (topProcessID)
+        #reemplazar proceso en el CPU
+        CPU = topProcessID
 
+#Funcion que crea un nuevo proceso
+#parametros: size, en btyes
 def create(size):
     # global pQueue
     global processID
     global CPU
-    processSize.append(int(math.ceil(float(size))))
+    #agregar tamano de proceso al arreglo de tamanos
+    processSize.append(int(math.ceil(float(int(size)/int(pageSizeInBytes)))))
+    #agregarlo a la cola de listos
     pQueue.enqueue(processID)
+    #inicializar que su ultima pagina en ser usada fue la 0
     lastPageUsed.append(0)
 
 
-    #if first process
+    #Si es el primer proceso cargarlo al CPU
     if CPU == "L":
         addQueueProcToCPU()
 
     print >>sys.stderr, 'sending answer back to the client'
     answer = "%.3f process %s created size %s pages" % (timestamp, processID, processSize[processID])
     connection.sendall(answer)
+
+    #incrementar contador de procesos
     processID += 1
 
+#Funcion que saca la direccion real al igual que carga dicha en en CPU de un proceso especifico
+#Parametros, processID, virtualAddress
 def address(processID, virtualAddress):
-    #process not in CPU
+    #Si el proceso no en CPU, ignorar
     if (processID) not in str(CPU):
         message = "%.3f ERROR: Requested process ID not in CPU" % timestamp
-        print(message)
         connection.sendall(message)
         return None
-        #virtual address out of bounds
+    #Si el proceso esta fuera del tmano, ignorar
     if (processSize[int(processID)]*pageSizeInBytes) <= int(virtualAddress):
         message = "%.3f ERROR: Requested virtul address out of bounds" % timestamp
-        print(message)
         connection.sendall(message)
         return None
+    #obtener el numero de pagina de acuerdo a la dir virtual
     procPageID = math.floor(int(virtualAddress)/pageSizeInBytes)
+    #sacar el byte especifico que sobra despues de obtener el numero de pag
     procByteNum = int(virtualAddress)%pageSizeInBytes
+    #agregar pagina a la memoria real y/o obtener su entrada en la tabla
     tableEntry = addPage(processID, procPageID)
+    #obtener el indice que tiene dicha pagina en la memoria real
     pageEntry = (tableEntry.split(":"))[0]
-
+    #calcualr la dir real
     realAddress = int(pageEntry)*pageSizeInBytes + int(procByteNum)
+    global dirReal
+    dirReal = realAddress
 
     print >>sys.stderr, 'sending answer back to the client'
     answer = "%.3f real address: %s" % (timestamp, realAddress)
     connection.sendall(answer)
 
+#Funcion que simula un quantum
 def quantumFunc():
     global CPU
+    #incrementar el timestamp por un quantum
     incrementTimestamp(float(quantum))
 
+    #si el CPU esta ocupado y procesos esperar...
     if CPU != "L" and pQueue.size() != 0:
         #quitar proceso del CPU y poner otro
         pQueue.enqueue(CPU)
         addQueueProcToCPU()
+    #Si el CPU esta vacio pero hay procesos esperando...
     elif pQueue.size() != 0:
         #quitar proceso del CPU
         CPU = "L"
         #poner proceso en el CPU
         addQueueProcToCPU()
-
+    #En dado caso que el CPU no este vacio, pero asimismo no haya procesos en espera, se queda igual
 
     print >>sys.stderr, 'sending answer back to the client'
     answer = "%.3f quantum end" % timestamp
     connection.sendall(answer)
 
+#Funcion que simula la terminacion de un proceso
+#parametros: processID
 def terminate(processID):
-    #remove from queue
+    #quitar proceso de la cola de listos
     global CPU
     pQueue.remove(processID)
 
-    #remove from pageTable
+    #quitar proceso de la memoria real
     processName = str(processID) + "."
     processMatching = [s for s in pageTable if processName in s]
     for s in processMatching:
         i = pageTable.index(s)
         pageTable[i] = "L"
 
-    #remove from swapTable
+    #quitar proceso de la memoria de swap
     processName = str(processID) + "."
     processMatching = [s for s in swapTable if processName in s]
     for s in processMatching:
         i = swapTable.index(s)
         pageTable[i] = "L"
 
-    #remove from CPU
+    #rquitar de CPU
     if str(CPU) == str(processID):
         CPU = "L"
         addQueueProcToCPU()
 
-    #add to finished list
+    #agregar a la cola de terminados
     finished.append(processID)
 
     print >>sys.stderr, 'sending answer back to the client'
@@ -246,24 +327,34 @@ try:
 
     # Receive the data
     while True:
+        #inicializar data
         data = ""
         data = connection.recv(256)
-        print("data:" + data)
         command = data
         comment = None
         parameters = []
 
+        #obtener el comentario
         if "//" in command:
             commentSplit = data.split("//")
             command = commentSplit[0]
             comment = commentSplit[1]
+
+        #guardar una copia del comando con sus parametros para el despliegue de la tabla
+        commandFull = command
+
+        #obtener los parametros
         if " " in  command:
             parameters = command.split(" ")
             command = parameters[0]
 
+        #incrementar el timestamp
         incrementTimestamp(0.001)
-        print("data:" + data)
-        print("command:" + command)
+
+        #inicializar direccion real
+        global realAddress
+        realAddress = None
+
         #Create %s, size in pages
         if command == "Create":
             create(parameters[1])
@@ -277,18 +368,32 @@ try:
         elif command == "Fin":
             terminate(parameters[1])
         else:
-            print("ningun commando")
+            print >>sys.stderr, 'Invalid command from', client_address
+            answer = "Invalid command: Server terminating"
+            connection.sendall(answer)
+            connection.close()
+            sys.exit()
 
-        #End
-        print("CPU:" + str(CPU))
-        print("cola:"),
+        print("========================================Inicio de tabla")
+        print("Commando: " + commandFull)
+        print("Timestamp: " + str(timestamp))
+        print("Dir. Real: " + str(realAddress))
+        print("Cola de listos: "),
         print(pQueue.printQueue())
-        print("finished:"),
-        print(finished)
-        print("pageTable:"),
+        print("CPU: " + str(CPU))
+        print("Memoria Real: "),
         print(pageTable)
-        print("swapTable:"),
+        print("Area de swapping:"),
         print(swapTable)
+        print("Procesos Terminados:"),
+        print(finished)
+
+        # print("Stack de MFU para memoria Real:"),
+        # print(mfuPageTable.printStack())
+        # print("Stack de MFU para espacio de Swap:"),
+        # print(mfuSwapTable.printStack())
+        print("========================================Fin de tabla")
+        #print(tabulate([[commandFull, timestamp, dirReal, "pQueue.printQueue()", CPU, "pageTable", "swapTable", "finished"]], headers=['Commando', 'Timestamp', 'Dir. Real', 'Cola de Listos', 'CPU', 'Memoria Real', 'Area de Swapping', 'Procesos terminados']))
 
         if data == "End":
             print >>sys.stderr, 'no data from', client_address

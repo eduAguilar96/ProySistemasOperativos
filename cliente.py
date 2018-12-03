@@ -15,7 +15,7 @@ sock.connect(server_address)
 
 # After the connection is established, data can be sent through the socket with sendall() and received with recv(), just as in the server.
 
-messages = ['Quantum', 'Create 2 //process A', 'Create 1 //process B', 'Address 1 2048//basura de comentario', 'Address 2 1023//basura de comentario','Address 1 2046//basura de comentario', 'Quantum', 'Quantum', 'Fin 1//holo', 'Quantum', 'Create 3', 'Quantum', 'Address 3 1559', 'Address 3 2500', 'End']
+messages = ['Quantum', 'Create 2048 //process A', 'Create 1024 //process B', 'Address 1 2048//comentario', 'Address 2 1023//comentario','Address 1 2046//comentario', 'Quantum', 'Quantum', 'Fin 1//holo', 'Quantum', 'Create 6144', 'Quantum', 'Address 3 1559', 'Address 3 2500', 'Address 3 3075', 'Address 3 5000', 'Create 1024', 'Quantum', 'Quantum', 'Quantum', 'Fin 3', 'Fin 4', 'Fin 2', 'End']
 try:
 
     # Send data
