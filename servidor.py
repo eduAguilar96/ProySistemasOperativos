@@ -4,50 +4,55 @@ import time
 import math
 
 class Queue:
-  #Constructor creates a list
-  def __init__(self):
-      self.queue = list()
+    #Constructor creates a list
+    def __init__(self):
+        self.queue = list()
 
-  #Adding elements to queue
-  def enqueue(self,data):
-      #Checking to avoid duplicate entry (not mandatory)
-      if data not in self.queue:
-          self.queue.insert(0,data)
-          return True
-      return False
+    #Adding elements to queue
+    def enqueue(self,data):
+        #Checking to avoid duplicate entry (not mandatory)
+        if data not in self.queue:
+            self.queue.insert(0,data)
+            return True
+        return False
 
   #Removing the last element from the queue
-  def dequeue(self):
-      if len(self.queue)>0:
-          return self.queue.pop()
-      return ("Queue Empty!")
+    def dequeue(self):
+        if len(self.queue)>0:
+            return self.queue.pop()
+        return ("Queue Empty!")
 
-  #Getting the size of the queue
-  def size(self):
-      return len(self.queue)
+    #Getting the size of the queue
+    def size(self):
+        return len(self.queue)
 
-  #printing the elements of the queue
-  def printQueue(self):
-      return self.queue
+    def remove(self, value):
+        if str(value) in self.queue: self.queue.remove(str(value))
+        if int(value) in self.queue: self.queue.remove(int(value))
+        return True
+
+    #printing the elements of the queue
+    def printQueue(self):
+        return self.queue
 
 class Stack:
-     def __init__(self):
-         self.items = []
+    def __init__(self):
+        self.items = []
 
-     def isEmpty(self):
-         return self.items == []
+    def isEmpty(self):
+        return self.items == []
 
-     def push(self, item):
-         self.items.append(item)
+    def push(self, item):
+        self.items.append(item)
 
-     def pop(self):
-         return self.items.pop()
+    def pop(self):
+        return self.items.pop()
 
-     def peek(self):
-         return self.items[len(self.items)-1]
+    def peek(self):
+        return self.items[len(self.items)-1]
 
-     def size(self):
-         return len(self.items)
+    def size(self):
+        return len(self.items)
 
 #Instanitate CPU values
 politicaCPU = "RR" #Round Robin
@@ -69,22 +74,13 @@ CPU = "L"
 processID = 1
 processSize = ["L"]
 lastPageUsed = [0]
+finished = []
 
 def incrementTimestamp(time):
     global timestamp
     timestamp += time
 
-def resetDelta():
-    global delta
-    delta = quantum
-
-def decrementDelta():
-    global delta
-    delta -= quantum
-
 def addPage(processID, pageID):
-    # processName = str(processID) + "."
-    # processMatching = [s for s in pageTable if processName in s]
     global pageTable
     global lastPageUsed
     lastPageUsed[int(processID)] = int(pageID)
@@ -124,17 +120,16 @@ def addSwapPage(processID, pageID):
     return str(swapTable.index(proccessWithPage)) + ":" + proccessWithPage
 
 def addQueueProcToCPU():
-    global CPU
-    topProcessID = pQueue.dequeue()
-    tableEntry = addPage(topProcessID, lastPageUsed[topProcessID])
-    CPU = (topProcessID)
+    if(pQueue.size() != 0):
+        global CPU
+        topProcessID = pQueue.dequeue()
+        tableEntry = addPage(topProcessID, lastPageUsed[topProcessID])
+        CPU = (topProcessID)
 
 def create(size):
     # global pQueue
     global processID
     global CPU
-    global processSize
-    global lastPageUsed
     processSize.append(int(math.ceil(float(size))))
     pQueue.enqueue(processID)
     lastPageUsed.append(0)
@@ -174,20 +169,53 @@ def address(processID, virtualAddress):
     connection.sendall(answer)
 
 def quantumFunc():
-    global queue
+    global CPU
     incrementTimestamp(float(quantum))
 
     if CPU != "L" and pQueue.size() != 0:
         #quitar proceso del CPU y poner otro
-        addSwapPage(int(CPU), lastPageUsed[int(CPU)])
         pQueue.enqueue(CPU)
         addQueueProcToCPU()
     elif pQueue.size() != 0:
+        #quitar proceso del CPU
+        CPU = "L"
         #poner proceso en el CPU
         addQueueProcToCPU()
 
+
     print >>sys.stderr, 'sending answer back to the client'
     answer = "%.3f quantum end" % timestamp
+    connection.sendall(answer)
+
+def terminate(processID):
+    #remove from queue
+    global CPU
+    pQueue.remove(processID)
+
+    #remove from pageTable
+    processName = str(processID) + "."
+    processMatching = [s for s in pageTable if processName in s]
+    for s in processMatching:
+        i = pageTable.index(s)
+        pageTable[i] = "L"
+
+    #remove from swapTable
+    processName = str(processID) + "."
+    processMatching = [s for s in swapTable if processName in s]
+    for s in processMatching:
+        i = swapTable.index(s)
+        pageTable[i] = "L"
+
+    #remove from CPU
+    if str(CPU) == str(processID):
+        CPU = "L"
+        addQueueProcToCPU()
+
+    #add to finished list
+    finished.append(processID)
+
+    print >>sys.stderr, 'sending answer back to the client'
+    answer = "%.3f process %s terminated" % (timestamp, processID)
     connection.sendall(answer)
 
 # Create a TCP/IP socket
@@ -218,11 +246,9 @@ try:
 
     # Receive the data
     while True:
+        data = ""
         data = connection.recv(256)
-        if data == "":
-            print >>sys.stderr, 'no data from', client_address
-            connection.close()
-            sys.exit()
+        print("data:" + data)
         command = data
         comment = None
         parameters = []
@@ -232,23 +258,44 @@ try:
             command = commentSplit[0]
             comment = commentSplit[1]
         if " " in  command:
-            parameters = commentSplit[0].split(" ")
+            parameters = command.split(" ")
             command = parameters[0]
 
         incrementTimestamp(0.001)
+        print("data:" + data)
+        print("command:" + command)
         #Create %s, size in pages
         if command == "Create":
             create(parameters[1])
         #Quantum
-        if command == "Quantum":
+        elif command == "Quantum":
             quantumFunc()
         #Address
-        if command == "Address":
+        elif command == "Address":
             address(parameters[1], parameters[2])
         #Fin
-        #End
-        print(pQueue.printQueue())
+        elif command == "Fin":
+            terminate(parameters[1])
+        else:
+            print("ningun commando")
 
+        #End
+        print("CPU:" + str(CPU))
+        print("cola:"),
+        print(pQueue.printQueue())
+        print("finished:"),
+        print(finished)
+        print("pageTable:"),
+        print(pageTable)
+        print("swapTable:"),
+        print(swapTable)
+
+        if data == "End":
+            print >>sys.stderr, 'no data from', client_address
+            answer = "Server terminating"
+            connection.sendall(answer)
+            connection.close()
+            sys.exit()
 finally:
     # Clean up the connection
     print >>sys.stderr, 'se fue al finally'
