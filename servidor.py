@@ -218,7 +218,7 @@ def create(size):
     if CPU == "L":
         addQueueProcToCPU()
 
-    print >>sys.stderr, 'sending answer back to the client'
+    # print >>sys.stderr, 'sending answer back to the client'
     answer = "%.3f process %s created size %s pages" % (timestamp, processID, processSize[processID])
     connection.sendall(answer)
 
@@ -251,7 +251,7 @@ def address(processID, virtualAddress):
     global dirReal
     dirReal = realAddress
 
-    print >>sys.stderr, 'sending answer back to the client'
+    # print >>sys.stderr, 'sending answer back to the client'
     answer = "%.3f real address: %s" % (timestamp, realAddress)
     connection.sendall(answer)
 
@@ -274,7 +274,7 @@ def quantumFunc():
         addQueueProcToCPU()
     #En dado caso que el CPU no este vacio, pero asimismo no haya procesos en espera, se queda igual
 
-    print >>sys.stderr, 'sending answer back to the client'
+    # print >>sys.stderr, 'sending answer back to the client'
     answer = "%.3f quantum end" % timestamp
     connection.sendall(answer)
 
@@ -307,7 +307,7 @@ def terminate(processID):
     #agregar a la cola de terminados
     finished.append(processID)
 
-    print >>sys.stderr, 'sending answer back to the client'
+    # print >>sys.stderr, 'sending answer back to the client'
     answer = "%.3f process %s terminated" % (timestamp, processID)
     connection.sendall(answer)
 
@@ -460,25 +460,7 @@ try:
             "Procesos Terminados"
         ]
         print tabulate(table, headers)
-
-        # print("========================================Inicio de tabla")
-        # print("Commando: " + commandFull)
-        # print("Timestamp: " + str(timestamp))
-        # print("Dir. Real: " + str(realAddress))
-        # print("Cola de listos: "),
-        # print(pQueue.printQueue())
-        # print("CPU: " + str(CPU))
-        # print("Memoria Real: "),
-        # print(pageTable)
-        # print("Area de swapping:"),
-        # print(swapTable)
-        # print("Procesos Terminados:"),
-        # print(finished)
-        # print("Stack de MFU para memoria Real:"),
-        # print(mfuPageTable.printStack())
-        # print("Stack de MFU para espacio de Swap:"),
-        # print(mfuSwapTable.printStack())
-        # print("========================================Fin de tabla")
+        print("====================================")
 
         if data == "End":
             print >>sys.stderr, 'no data from', client_address
