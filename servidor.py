@@ -285,7 +285,7 @@ def terminate(processID):
     processMatching = [s for s in swapTable if processName in s]
     for s in processMatching:
         i = swapTable.index(s)
-        pageTable[i] = "L"
+        swapTable[i] = "L"
 
     #rquitar de CPU
     if str(CPU) == str(processID):
