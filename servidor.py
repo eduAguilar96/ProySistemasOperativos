@@ -4,6 +4,7 @@ import time
 import math
 import tabulate
 
+#clase de Queue para la cola de listos
 class Queue:
     #Constructor creates a list
     def __init__(self):
@@ -36,6 +37,7 @@ class Queue:
     def printQueue(self):
         return self.queue
 
+#clase de stack para MFU
 class Stack:
     def __init__(self):
         self.items = []
@@ -59,12 +61,24 @@ class Stack:
         return self.items
 
 #Instanitate CPU values
-politicaCPU = "RR" #Round Robin
-politicaMEM = "MFU" #Most Frequently used
-quantum = 1.0 #quantum size in seconds
-realMem = 3 #real memory size in kilonytes, 1 => 1024
-swapMem = 2 #swap memory size in kilobytes, 1 => 1024
-pageSizeInKB = 1 #page size in kilobytes, 1 => 1024
+print('Politica Scheduling CPU = "RR"') #Round Robin
+print('Politica de Memoria = "MFU"') #Most Frequently used
+
+quantum = raw_input("Quantum in sec(Ej. 1.0): ")
+type(quantum)
+quantum = float(quantum) #quantum size in seconds
+
+realMem = input("RealMemory en KBs (Ej. 3): ")
+type(realMem)
+realMem = int(realMem) #real memory size in kilonytes, 1 => 1024
+
+swapMem = input("SwapMemory en KBs (Ej. 2): ")
+type(swapMem)
+swapMem = int(swapMem) #swap memory size in kilobytes, 1 => 1024
+
+pageSizeInKB = input("PageSize en KBs (Ej. 1): ")
+type(pageSizeInKB)
+pageSizeInKB = int(pageSizeInKB) #page size in kilobytes, 1 => 1024
 
 pageSizeInBytes = pageSizeInKB*1024
 timestamp = 0.0
