@@ -243,9 +243,7 @@ def address(processID, virtualAddress):
     #sacar el byte especifico que sobra despues de obtener el numero de pag
     procByteNum = int(virtualAddress)%pageSizeInBytes
     #agregar pagina a la memoria real y/o obtener su entrada en la tabla
-    print(processID, procPageID)
     tableEntry = addPage(processID, procPageID)
-    print(tableEntry)
     #obtener el indice que tiene dicha pagina en la memoria real
     pageEntry = (tableEntry.split(":"))[0]
     #calcualr la dir real
