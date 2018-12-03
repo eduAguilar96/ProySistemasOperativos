@@ -61,32 +61,30 @@ class Stack:
         return self.items
 
 #Instanitate CPU values
-print('Politica Scheduling CPU = "RR"') #Round Robin
-print('Politica de Memoria = "MFU"') #Most Frequently used
-
-quantum = raw_input("Quantum in sec(Ej. 1.0): ")
-type(quantum)
-quantum = float(quantum) #quantum size in seconds
-
-realMem = input("RealMemory en KBs (Ej. 3): ")
-type(realMem)
-realMem = int(realMem) #real memory size in kilonytes, 1 => 1024
-
-swapMem = input("SwapMemory en KBs (Ej. 2): ")
-type(swapMem)
-swapMem = int(swapMem) #swap memory size in kilobytes, 1 => 1024
-
-pageSizeInKB = input("PageSize en KBs (Ej. 1): ")
-type(pageSizeInKB)
-pageSizeInKB = int(pageSizeInKB) #page size in kilobytes, 1 => 1024
+#print('Politica Scheduling CPU = "RR"') #Round Robin
+#print('Politica de Memoria = "MFU"') #Most Frequently used
+quantum = 1.0 #quantum size in seconds
+realMem = 3 #real memory size in kilonytes, 1 => 1024
+swapMem = 4 #swap memory size in kilobytes, 1 => 1024
+pageSizeInKB = 1 #page size in kilobytes, 1 => 1024
 
 pageSizeInBytes = pageSizeInKB*1024
 timestamp = 0.0
-delta = quantum
 
 pageTable = ["L"] * (realMem/pageSizeInKB) #lista con paginas inicialmente libres
-mfuPageTable = Stack() #stack que guarda el order de las paginas
 swapTable = ["L"] * (swapMem/pageSizeInKB) #lista de swap inicialmente libre
+
+def setGlobals():
+    global pageSizeInBytes
+    pageSizeInBytes = pageSizeInKB*1024
+
+    global pageTable
+    pageTable = ["L"] * (int(realMem)/int(pageSizeInKB)) #lista con paginas inicialmente libres
+
+    global swapTable
+    swapTable = ["L"] * (int(swapMem)/int(pageSizeInKB)) #lista de swap inicialmente libre
+
+mfuPageTable = Stack() #stack que guarda el order de las paginas
 mfuSwapTable = Stack() #stack que guarda el order del swap
 pQueue = Queue() #cola de listos
 
@@ -111,6 +109,7 @@ def addPage(processID, pageID):
 
     #este string es la concatenaccion del proceso con su pagina
     proccessWithPage = str(processID) + "." + str(int(pageID))
+    print("proccessWithPage", proccessWithPage)
 
     #Si una pagina ya esta en memoria real
     if proccessWithPage in pageTable:
@@ -151,7 +150,7 @@ def addPage(processID, pageID):
             #re-llamar funcion para ya agregar
             return addPage(processID, pageID)
 
-        return str(pageTable.index(proccessWithPage)) + ":" + proccessWithPage
+    return str(pageTable.index(proccessWithPage)) + ":" + proccessWithPage
 
 #Funcion que agrega una pagina a la tabla de la Memoriade Swap
 #parameters: processID, pageID
@@ -241,11 +240,13 @@ def address(processID, virtualAddress):
         connection.sendall(message)
         return None
     #obtener el numero de pagina de acuerdo a la dir virtual
-    procPageID = math.floor(int(virtualAddress)/pageSizeInBytes)
+    procPageID = int(math.floor(int(virtualAddress)/pageSizeInBytes))
     #sacar el byte especifico que sobra despues de obtener el numero de pag
     procByteNum = int(virtualAddress)%pageSizeInBytes
     #agregar pagina a la memoria real y/o obtener su entrada en la tabla
+    print(processID, procPageID)
     tableEntry = addPage(processID, procPageID)
+    print(tableEntry)
     #obtener el indice que tiene dicha pagina en la memoria real
     pageEntry = (tableEntry.split(":"))[0]
     #calcualr la dir real
@@ -344,6 +345,55 @@ try:
         #inicializar data
         data = ""
         data = connection.recv(256)
+        ####necesidades para que funcione con el Cliente Final
+        if data == "Politicas scheduling RR Memory MFU":
+            print("data: " + data)
+            print >>sys.stderr, 'Valid Inizialization command from', client_address
+            answer = "Initializing RR with MFU"
+            connection.sendall(answer)
+            continue
+        if data.startswith("QuantumV"):
+            print("data: " + data)
+            aux = data.split(" ")
+            # global quantum
+            quantum = float(aux[1])
+            print >>sys.stderr, 'Valid Inizialization command from', client_address
+            answer = "Initializing Quantum as %s" % quantum
+            connection.sendall(answer)
+            # setGlobals()
+            continue
+        if data.startswith("RealMemory"):
+            print("data: " + data)
+            aux = data.split(" ")
+            # global realMem
+            realMem = int(aux[1])
+            print >>sys.stderr, 'Valid Inizialization command from', client_address
+            answer = "Initializing RealMem as %s" % realMem
+            connection.sendall(answer)
+            # setGlobals()
+            continue
+        if data.startswith("SwapMemory"):
+            print("data: " + data)
+            aux = data.split(" ")
+            # global swapMem
+            swapMem = int(aux[1])
+            print >>sys.stderr, 'Valid Inizialization command from', client_address
+            answer = "Initializing SwapMem as %s" % swapMem
+            connection.sendall(answer)
+            # setGlobals()
+            continue
+        if data.startswith("PageSize"):
+            print("data: " + data)
+            aux = data.split(" ")
+            # global pageSizeInKB
+            pageSizeInKB = int(aux[1])
+            print >>sys.stderr, 'Valid Inizialization command from', client_address
+            answer = "Initializing PageSize as %s" % pageSizeInKB
+            connection.sendall(answer)
+            setGlobals()
+            continue
+
+        ####
         command = data
         comment = None
         parameters = []
@@ -369,6 +419,8 @@ try:
         global realAddress
         realAddress = None
 
+        print("commando", commandFull)
+
         #Create %s, size in pages
         if command == "Create":
             create(parameters[1])
@@ -381,7 +433,7 @@ try:
         #Fin
         elif command == "Fin":
             terminate(parameters[1])
-        else:
+        elif command != "End":
             print >>sys.stderr, 'Invalid command from', client_address
             answer = "Invalid command: Server terminating"
             connection.sendall(answer)
