@@ -2,7 +2,7 @@ import socket
 import sys
 import time
 import math
-import tabulate
+from tabulate import tabulate
 
 #clase de Queue para la cola de listos
 class Queue:
@@ -109,7 +109,6 @@ def addPage(processID, pageID):
 
     #este string es la concatenaccion del proceso con su pagina
     proccessWithPage = str(processID) + "." + str(int(pageID))
-    print("proccessWithPage", proccessWithPage)
 
     #Si una pagina ya esta en memoria real
     if proccessWithPage in pageTable:
@@ -419,7 +418,7 @@ try:
         global realAddress
         realAddress = None
 
-        print("commando", commandFull)
+        # print("commando", commandFull)
 
         #Create %s, size in pages
         if command == "Create":
@@ -440,26 +439,48 @@ try:
             connection.close()
             sys.exit()
 
-        print("========================================Inicio de tabla")
-        print("Commando: " + commandFull)
-        print("Timestamp: " + str(timestamp))
-        print("Dir. Real: " + str(realAddress))
-        print("Cola de listos: "),
-        print(pQueue.printQueue())
-        print("CPU: " + str(CPU))
-        print("Memoria Real: "),
-        print(pageTable)
-        print("Area de swapping:"),
-        print(swapTable)
-        print("Procesos Terminados:"),
-        print(finished)
+        table = [
+            [
+                commandFull,
+                str(timestamp),
+                str(realAddress),
+                pQueue.printQueue(),
+                str(CPU),
+                pageTable,
+                swapTable,
+                finished
+            ]
+        ]
+        headers = [
+            "Commando",
+            "Timestamp",
+            "Dir. Real",
+            "Cola de Listos",
+            "CPU",
+            "Memoria Real",
+            "Area de Swapping",
+            "Procesos Terminados"
+        ]
+        print tabulate(table, headers)
 
+        # print("========================================Inicio de tabla")
+        # print("Commando: " + commandFull)
+        # print("Timestamp: " + str(timestamp))
+        # print("Dir. Real: " + str(realAddress))
+        # print("Cola de listos: "),
+        # print(pQueue.printQueue())
+        # print("CPU: " + str(CPU))
+        # print("Memoria Real: "),
+        # print(pageTable)
+        # print("Area de swapping:"),
+        # print(swapTable)
+        # print("Procesos Terminados:"),
+        # print(finished)
         # print("Stack de MFU para memoria Real:"),
         # print(mfuPageTable.printStack())
         # print("Stack de MFU para espacio de Swap:"),
         # print(mfuSwapTable.printStack())
-        print("========================================Fin de tabla")
-        #print(tabulate([[commandFull, timestamp, dirReal, "pQueue.printQueue()", CPU, "pageTable", "swapTable", "finished"]], headers=['Commando', 'Timestamp', 'Dir. Real', 'Cola de Listos', 'CPU', 'Memoria Real', 'Area de Swapping', 'Procesos terminados']))
+        # print("========================================Fin de tabla")
 
         if data == "End":
             print >>sys.stderr, 'no data from', client_address
